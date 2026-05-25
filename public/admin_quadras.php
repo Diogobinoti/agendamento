@@ -30,6 +30,8 @@ $quadras = mysqli_query($conn, "SELECT * FROM quadras");
 </head>
 <body>
 
+<?php include '../includes/header.php'; ?>
+
 <div class="container">
 
 <div class="card">
