@@ -1,3 +1,10 @@
 <?php
-header("Location: login.php");
-?>
+// public/index.php
+session_start();
+
+if (!empty($_SESSION['id'])) {
+    header('Location: dashboard.php');
+} else {
+    header('Location: login.php');
+}
+exit;

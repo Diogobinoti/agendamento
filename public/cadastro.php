@@ -1,52 +1,98 @@
 <?php
-include '../config/conexao.php';
+// public/cadastro.php
+session_start();
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+if (!empty($_SESSION['id'])) {
+    header('Location: dashboard.php');
+    exit;
+}
 
-    $nome = $_POST['nome'];
-    $email = $_POST['email'];
-    $senha = md5($_POST['senha']);
+require '../config/conexao.php';
 
-    $sql = "INSERT INTO usuarios(nome,email,senha)
-            VALUES('$nome','$email','$senha')";
+$erro  = '';
+$sucesso = '';
 
-    mysqli_query($conn, $sql);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $nome  = trim($_POST['nome']  ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $senha = $_POST['senha'] ?? '';
+    $confirma = $_POST['confirma'] ?? '';
 
-    header('Location: login.php');
+    if ($nome === '' || $email === '' || $senha === '') {
+        $erro = 'Preencha todos os campos.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $erro = 'E-mail inválido.';
+    } elseif (strlen($senha) < 6) {
+        $erro = 'A senha deve ter pelo menos 6 caracteres.';
+    } elseif ($senha !== $confirma) {
+        $erro = 'As senhas não coincidem.';
+    } else {
+        // Verifica se e-mail já existe
+        $stmtChk = $conn->prepare('SELECT id FROM usuarios WHERE email = ?');
+        $stmtChk->bind_param('s', $email);
+        $stmtChk->execute();
+        $stmtChk->store_result();
+
+        if ($stmtChk->num_rows > 0) {
+            $erro = 'Este e-mail já está cadastrado.';
+        } else {
+            $hash = password_hash($senha, PASSWORD_BCRYPT);
+
+            $stmtIns = $conn->prepare(
+                'INSERT INTO usuarios (nome, email, senha) VALUES (?, ?, ?)'
+            );
+            $stmtIns->bind_param('sss', $nome, $email, $hash);
+
+            if ($stmtIns->execute()) {
+                $sucesso = 'Cadastro realizado com sucesso! Faça login.';
+            } else {
+                $erro = 'Erro ao cadastrar. Tente novamente.';
+            }
+            $stmtIns->close();
+        }
+        $stmtChk->close();
+    }
 }
 ?>
+<?php include '../includes/header.php'; ?>
 
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>Cadastro</title>
-<link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
+<main class="container form-center">
+    <div class="card card-sm">
+        <h2>Criar conta</h2>
 
+        <?php if ($erro): ?>
+            <div class="alert alert-erro"><?= htmlspecialchars($erro) ?></div>
+        <?php endif; ?>
+        <?php if ($sucesso): ?>
+            <div class="alert alert-ok"><?= htmlspecialchars($sucesso) ?></div>
+        <?php endif; ?>
 
-<div class="container">
+        <form method="POST" novalidate>
+            <label for="nome">Nome completo</label>
+            <input type="text" id="nome" name="nome"
+                   placeholder="João Silva"
+                   value="<?= htmlspecialchars($_POST['nome'] ?? '') ?>" required>
 
-<div class="card">
+            <label for="email">E-mail</label>
+            <input type="email" id="email" name="email"
+                   placeholder="seu@email.com"
+                   value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" required>
 
-<h2>Cadastro</h2>
+            <label for="senha">Senha <small>(mín. 6 caracteres)</small></label>
+            <input type="password" id="senha" name="senha"
+                   placeholder="Crie uma senha" required>
 
-<form method="POST">
+            <label for="confirma">Confirmar senha</label>
+            <input type="password" id="confirma" name="confirma"
+                   placeholder="Repita a senha" required>
 
-<input type="text" name="nome" placeholder="Nome" required>
+            <button type="submit" class="btn btn-primary btn-block">Cadastrar</button>
+        </form>
 
-<input type="email" name="email" placeholder="Email" required>
+        <p class="text-center mt-1">
+            Já tem conta? <a href="login.php">Entrar</a>
+        </p>
+    </div>
+</main>
 
-<input type="password" name="senha" placeholder="Senha" required>
-
-<button type="submit">Cadastrar</button>
-
-</form>
-
-</div>
-
-</div>
-
-</body>
-</html>
+<?php include '../includes/footer.php'; ?>

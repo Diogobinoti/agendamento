@@ -1,14 +1,18 @@
 <?php
-$host = "localhost";
-$db = "sistema_agendamento";
-$user = "root";
-$pass = "vertrigo";
+// config/conexao.php
+// Ajuste as credenciais conforme seu ambiente
 
-$conn = mysqli_connect($host, $user, $pass, $db);
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'sistema_agendamento');
+define('DB_USER', 'root');
+define('DB_PASS', 'vertrigo');          // altere para sua senha
 
-if (!$conn) {
-    die("Erro na conexão: " . mysqli_connect_error());
+$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+
+if ($conn->connect_error) {
+    // Em produção, nunca exiba detalhes do erro ao usuário
+    error_log('Erro de conexão: ' . $conn->connect_error);
+    die(json_encode(['erro' => 'Falha na conexão com o banco de dados.']));
 }
 
-mysqli_set_charset($conn, "utf8");
-?>
+$conn->set_charset('utf8mb4');

@@ -1,65 +1,74 @@
 <?php
+// public/login.php
 session_start();
-include '../config/conexao.php';
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+if (!empty($_SESSION['id'])) {
+    header('Location: dashboard.php');
+    exit;
+}
 
-    $email = $_POST['email'];
-    $senha = md5($_POST['senha']);
+require '../config/conexao.php';
 
-    $sql = "SELECT * FROM usuarios WHERE email='$email' AND senha='$senha'";
-    $resultado = mysqli_query($conn, $sql);
+$erro = '';
 
-    if (mysqli_num_rows($resultado) > 0) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $email = trim($_POST['email'] ?? '');
+    $senha = $_POST['senha'] ?? '';
 
-        $usuario = mysqli_fetch_assoc($resultado);
-
-        $_SESSION['id'] = $usuario['id'];
-        $_SESSION['nome'] = $usuario['nome'];
-        $_SESSION['tipo'] = $usuario['tipo'];
-
-        header('Location: dashboard.php');
-
+    if ($email === '' || $senha === '') {
+        $erro = 'Preencha todos os campos.';
     } else {
-        echo "Login inválido";
+        // Prepared statement — sem risco de SQL injection
+        $stmt = $conn->prepare('SELECT id, nome, senha, tipo FROM usuarios WHERE email = ?');
+        $stmt->bind_param('s', $email);
+        $stmt->execute();
+        $resultado = $stmt->get_result();
+
+        if ($resultado->num_rows === 1) {
+            $usuario = $resultado->fetch_assoc();
+
+            // password_verify compara com o hash bcrypt armazenado
+            if (password_verify($senha, $usuario['senha'])) {
+                session_regenerate_id(true); // previne session fixation
+                $_SESSION['id']   = $usuario['id'];
+                $_SESSION['nome'] = $usuario['nome'];
+                $_SESSION['tipo'] = $usuario['tipo'];
+                header('Location: dashboard.php');
+                exit;
+            }
+        }
+        $erro = 'E-mail ou senha inválidos.';
+        $stmt->close();
     }
 }
 ?>
-
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>Login</title>
-<link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
-
 <?php include '../includes/header.php'; ?>
 
-<div class="container">
+<main class="container form-center">
+    <div class="card card-sm">
+        <h2>Entrar no sistema</h2>
 
-<div class="card">
+        <?php if ($erro): ?>
+            <div class="alert alert-erro"><?= htmlspecialchars($erro) ?></div>
+        <?php endif; ?>
 
-<h2>Login</h2>
+        <form method="POST" novalidate>
+            <label for="email">E-mail</label>
+            <input type="email" id="email" name="email"
+                   placeholder="seu@email.com"
+                   value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" required>
 
-<form method="POST">
+            <label for="senha">Senha</label>
+            <input type="password" id="senha" name="senha"
+                   placeholder="Sua senha" required>
 
-<input type="email" name="email" placeholder="Email" required>
+            <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+        </form>
 
-<input type="password" name="senha" placeholder="Senha" required>
+        <p class="text-center mt-1">
+            Não tem conta? <a href="cadastro.php">Cadastre-se</a>
+        </p>
+    </div>
+</main>
 
-<button type="submit">Entrar</button>
-
-</form>
-
-<br>
-
-<a href="cadastro.php">Criar conta</a>
-
-</div>
-
-</div>
-
-</body>
-</html>
+<?php include '../includes/footer.php'; ?>
